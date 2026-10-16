@@ -17,9 +17,8 @@ A single-file, browser-based code execution visualizer for stepping through code
 
 ## Quick Start
 
-1. Download or clone `python_tutor_visualizer.html`.
-2. Double-click the file to open it in any modern browser (Chrome, Edge, Firefox, Brave, Safari).
-3. Type your code, pick your language, and click **▶ Visualize** (or press `Ctrl + Enter` / `Cmd + Enter`).
+1. Open `https://github.com/ChanduDevelops/De-Buggy.git` in any modern browser (Chrome, Edge, Firefox, Brave, Safari).
+2. Type your code, pick your language, and click **▶ Visualize** (or press `Ctrl + Enter` / `Cmd + Enter`).
 
 ## Keyboard Shortcuts
 
