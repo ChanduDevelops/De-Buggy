@@ -1,4 +1,4 @@
-# CodeVision 🚀
+# De-Buggy 🚀
 
 A single-file, browser-based code execution visualizer for stepping through code line-by-line, watching memory frames, variables, pointers, and 2D data structures evolve.
 
