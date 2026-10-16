@@ -22,7 +22,7 @@ A single-file, browser-based code execution visualizer for stepping through code
 
 ## Keyboard Shortcuts
 
-* **`Ctrl + Enter` / `Cmd + Enter**`: Visualize current code
-* **`Right Arrow` / `Left Arrow**`: Step forward / backward
-* **`Space`**: Play / Pause auto-stepping
-* **`Home` / `End**`: Jump to first / final step
+* `Ctrl + Enter` / `Cmd + Enter`: Visualize current code
+* `Right Arrow` / `Left Arrow`: Step forward / backward
+* `Space`: Play / Pause auto-stepping
+* `Home` / `End**`: Jump to first / final step
