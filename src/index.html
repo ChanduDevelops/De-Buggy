@@ -204,7 +204,7 @@
     }
 
     /* ======================================================================
-       AUTHENTIC PYTHON TUTOR COMPACT FRAMES & HORIZONTAL HEAP OBJECTS
+       COMPACT CALL-STACK FRAMES & HORIZONTAL HEAP OBJECTS
        ====================================================================== */
     #vizScrollViewport {
       flex: 1 1 0%;
@@ -236,7 +236,7 @@
       overflow: visible;
     }
 
-    /* Compact Frames Column (Just as wide as needed, like pythontutor.com) */
+    /* Compact Frames Column (Adaptive width) */
     .frames-col-wrap {
       width: fit-content;
       min-width: 120px;
@@ -341,7 +341,7 @@
       transition: background-color 0.3s ease;
     }
 
-    /* Compact Pointer Origin Dot (Matches original Python Tutor) */
+    /* Compact Pointer Origin Dot */
     .ptr-anchor {
       width: 7px;
       height: 7px;
@@ -357,7 +357,7 @@
       transform: scale(1.45);
     }
 
-    /* Compact Shrink-to-Fit Heap Objects (Authentic Python Tutor Diagonal Layout!) */
+    /* Compact Shrink-to-Fit Heap Objects (Diagonal Layout) */
     .heap-defs-stack {
       display: flex;
       flex-direction: row;
@@ -1014,7 +1014,29 @@
       border-right-color: #262c3e !important;
     }
 
-  </style>
+  
+    /* Visual Indentation Guides & Editor IntelliSense */
+    .indent-guide-bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background-color: rgba(148, 163, 184, 0.28);
+      pointer-events: none;
+    }
+    body.dark-mode .indent-guide-bar {
+      background-color: rgba(56, 189, 248, 0.18);
+    }
+    .indent-guide-active {
+      background-color: rgba(59, 130, 246, 0.55) !important;
+    }
+    body.dark-mode .indent-guide-active {
+      background-color: rgba(56, 189, 248, 0.45) !important;
+    }
+    .backdrop-line {
+      position: relative;
+    }
+</style>
 </head>
 <body class="dark-mode bg-slate-50 text-slate-900">
 
@@ -1126,6 +1148,13 @@
             <button id="btnClearBps" type="button" title="Clear all line breakpoints"
               class="px-1.5 py-0.5 rounded text-[10.5px] font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50">
               Clear Breakpoints (<span id="bpCountBadge">0</span>)
+            </button>
+            <span class="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/50" title="Smart 4-space auto-indentation, auto-closing brackets, and soft tabs active">
+              Indent: 4 spaces · IntelliSense
+            </span>
+            <button id="btnFormatIndent" type="button" title="Clean and standardize indentation to 4 spaces across all lines"
+              class="px-1.5 py-0.5 rounded text-[10.5px] font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50">
+              Format
             </button>
           </div>
         </div>
@@ -1380,7 +1409,7 @@
 
   <script>
 // ============================================================================
-// PYTHON TUTOR 99,999-STEP EXECUTION & HEAP VISUALIZATION ENGINE
+// CODEVISION 99,999-STEP EXECUTION & HEAP VISUALIZATION ENGINE
 // Pure-JS Python 3 Lexer, Indentation-Aware Parser, AST Evaluator & Step Tracer
 // ============================================================================
 
@@ -7387,7 +7416,7 @@ max_n = 1
 max_val = 0
 records = []
 
-# Standard Python Tutor stops at 999 steps (around num=18).
+# Standard step limits stop at 999 steps (around num=18).
 # Here you can scrub all 71,187 steps smoothly!
 for num in range(2, 350):
     c = collatz_steps(num)
@@ -7764,21 +7793,336 @@ codeScrollArea.addEventListener('scroll', () => {
   gutterContainer.scrollTop = codeScrollArea.scrollTop;
 });
 
-// Handle Tab key inside codeTextarea
+// ============================================================================
+// COMPREHENSIVE INDENTATION INTELLISENSE FOR PYTHON & MULTI-LANGUAGE
+// 1. Smart Auto-Indent on Enter (maintains indent, adds +4 after colons/brackets, expands { })
+// 2. Smart Auto-Dedent on Keywords (elif, else:, except:, finally:, } in C-family)
+// 3. Smart Tab & Shift+Tab (Multi-line block indent/dedent, single-line 4-space tabstops)
+// 4. Soft-Tab Backspace (deletes 4 spaces at once when at indentation tabstop)
+// 5. Auto-Closing Pairs & Overtype Stepping: (), [], {}, "", ''
+// ============================================================================
+
+function insertTextPreservingUndo(textToInsert) {
+  if (document.execCommand && document.execCommand('insertText', false, textToInsert)) {
+    return true;
+  }
+  const start = codeTextarea.selectionStart;
+  const end = codeTextarea.selectionEnd;
+  const val = codeTextarea.value;
+  codeTextarea.value = val.substring(0, start) + textToInsert + val.substring(end);
+  codeTextarea.selectionStart = codeTextarea.selectionEnd = start + textToInsert.length;
+  return false;
+}
+
 codeTextarea.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const start = codeTextarea.selectionStart;
-    const end = codeTextarea.selectionEnd;
-    const val = codeTextarea.value;
-    codeTextarea.value = val.substring(0, start) + '    ' + val.substring(end);
-    codeTextarea.selectionStart = codeTextarea.selectionEnd = start + 4;
-    renderEditorGutterAndHighlights();
-  } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+  // Shortcut: Ctrl+Enter / Cmd+Enter -> Run Visualization
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     runVisualization();
+    return;
+  }
+
+  const start = codeTextarea.selectionStart;
+  const end = codeTextarea.selectionEnd;
+  const val = codeTextarea.value;
+
+  // --------------------------------------------------------------------------
+  // 1. TAB & SHIFT+TAB: Multi-Line Block Indent/Dedent & Single-Line Tabstop
+  // --------------------------------------------------------------------------
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const isMultiLine = (start !== end && val.slice(start, end).includes('\n'));
+
+    if (e.shiftKey) {
+      // Unindent (Dedent)
+      if (isMultiLine) {
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        let lineEnd = val.indexOf('\n', end);
+        if (lineEnd === -1) lineEnd = val.length;
+
+        const originalBlock = val.slice(lineStart, lineEnd);
+        const blockLines = originalBlock.split('\n');
+        let removedFirst = 0;
+        let removedTotal = 0;
+
+        const unindentedLines = blockLines.map((line, idx) => {
+          let remove = 0;
+          if (line.startsWith('    ')) remove = 4;
+          else if (line.startsWith('\t')) remove = 1;
+          else {
+            const m = line.match(/^[ ]{1,3}/);
+            if (m) remove = m[0].length;
+          }
+          if (idx === 0) removedFirst = remove;
+          removedTotal += remove;
+          return line.slice(remove);
+        });
+
+        const newBlock = unindentedLines.join('\n');
+        codeTextarea.value = val.slice(0, lineStart) + newBlock + val.slice(lineEnd);
+        codeTextarea.selectionStart = Math.max(lineStart, start - removedFirst);
+        codeTextarea.selectionEnd = Math.max(lineStart, end - removedTotal);
+      } else {
+        // Single line unindent
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        const lineText = val.slice(lineStart);
+        let remove = 0;
+        if (lineText.startsWith('    ')) remove = 4;
+        else if (lineText.startsWith('\t')) remove = 1;
+        else {
+          const m = lineText.match(/^[ ]{1,3}/);
+          if (m) remove = m[0].length;
+        }
+        if (remove > 0) {
+          codeTextarea.value = val.slice(0, lineStart) + lineText.slice(remove);
+          codeTextarea.selectionStart = codeTextarea.selectionEnd = Math.max(lineStart, start - remove);
+        }
+      }
+    } else {
+      // Indent
+      if (isMultiLine) {
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        let lineEnd = val.indexOf('\n', end);
+        if (lineEnd === -1) lineEnd = val.length;
+
+        const originalBlock = val.slice(lineStart, lineEnd);
+        const blockLines = originalBlock.split('\n');
+        const indentedLines = blockLines.map(line => '    ' + line);
+        const newBlock = indentedLines.join('\n');
+
+        codeTextarea.value = val.slice(0, lineStart) + newBlock + val.slice(lineEnd);
+        codeTextarea.selectionStart = start + 4;
+        codeTextarea.selectionEnd = end + (blockLines.length * 4);
+      } else {
+        // Single line tab: insert spaces up to next 4-space tabstop
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        const col = start - lineStart;
+        const needed = 4 - (col % 4);
+        const spaces = ' '.repeat(needed || 4);
+        insertTextPreservingUndo(spaces);
+      }
+    }
+    renderEditorGutterAndHighlights();
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. ENTER KEY: Smart Auto-Indentation & Pair Expansion
+  // --------------------------------------------------------------------------
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = val.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = val.length;
+
+    const lineBeforeCursor = val.slice(lineStart, start);
+    const lineAfterCursor = val.slice(end, lineEnd);
+
+    // Extract current line indentation
+    const currentIndentMatch = lineBeforeCursor.match(/^[ \t]*/);
+    const currentIndent = currentIndentMatch ? currentIndentMatch[0].replace(/\t/g, '    ') : '';
+
+    // Check if cursor is directly between bracket pairs: { | }, ( | ), [ | ]
+    const betweenBraces = (lineBeforeCursor.trimEnd().endsWith('{') && lineAfterCursor.trimStart().startsWith('}'));
+    const betweenParens = (lineBeforeCursor.trimEnd().endsWith('(') && lineAfterCursor.trimStart().startsWith(')'));
+    const betweenBrackets = (lineBeforeCursor.trimEnd().endsWith('[') && lineAfterCursor.trimStart().startsWith(']'));
+
+    if (betweenBraces || betweenParens || betweenBrackets) {
+      const extraIndent = '    ';
+      const insertStr = '\n' + currentIndent + extraIndent + '\n' + currentIndent;
+      codeTextarea.value = val.substring(0, start) + insertStr + val.substring(end);
+      const newPos = start + 1 + currentIndent.length + extraIndent.length;
+      codeTextarea.selectionStart = codeTextarea.selectionEnd = newPos;
+      renderEditorGutterAndHighlights();
+      return;
+    }
+
+    // Determine extra indentation (+4 spaces)
+    let extraIndent = '';
+    const cleanBefore = lineBeforeCursor.replace(/#.*$/, '').replace(/\/\/.*$/, '').trimEnd();
+
+    if (currentLanguage === 'python') {
+      // Python: colon triggers indent (e.g. def, if, for, while, class, try, except, elif, else, with)
+      if (cleanBefore.endsWith(':')) {
+        extraIndent = '    ';
+      } else {
+        // Unclosed open bracket on line
+        const opens = (lineBeforeCursor.match(/[\(\[\{]/g) || []).length;
+        const closes = (lineBeforeCursor.match(/[\)\]\}]/g) || []).length;
+        if (opens > closes) extraIndent = '    ';
+      }
+    } else {
+      // C-family (Java, JS, C, C++, C#): opening brace, paren, or arrow triggers indent
+      if (cleanBefore.endsWith('{') || cleanBefore.endsWith('(') || cleanBefore.endsWith('[')) {
+        extraIndent = '    ';
+      }
+    }
+
+    const insertStr = '\n' + currentIndent + extraIndent;
+    codeTextarea.value = val.substring(0, start) + insertStr + val.substring(end);
+    codeTextarea.selectionStart = codeTextarea.selectionEnd = start + insertStr.length;
+    renderEditorGutterAndHighlights();
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. BACKSPACE: Soft-Tab Dedent & Pair Deletion
+  // --------------------------------------------------------------------------
+  if (e.key === 'Backspace' && start === end && start > 0) {
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    const beforeInLine = val.slice(lineStart, start);
+
+    // If cursor is preceded only by spaces on this line, delete 4 spaces (soft tab)
+    if (beforeInLine.length > 0 && /^[ ]+$/.test(beforeInLine)) {
+      e.preventDefault();
+      const removeCount = (beforeInLine.length % 4 === 0) ? 4 : (beforeInLine.length % 4);
+      codeTextarea.value = val.slice(0, start - removeCount) + val.slice(start);
+      codeTextarea.selectionStart = codeTextarea.selectionEnd = start - removeCount;
+      renderEditorGutterAndHighlights();
+      return;
+    }
+
+    // Delete matching empty pair if cursor is between them: (), [], {}, "", ''
+    const charBefore = val[start - 1];
+    const charAfter = val[start];
+    const isPair = (
+      (charBefore === '(' && charAfter === ')') ||
+      (charBefore === '[' && charAfter === ']') ||
+      (charBefore === '{' && charAfter === '}') ||
+      (charBefore === '"' && charAfter === '"') ||
+      (charBefore === "'" && charAfter === "'")
+    );
+    if (isPair) {
+      e.preventDefault();
+      codeTextarea.value = val.slice(0, start - 1) + val.slice(start + 1);
+      codeTextarea.selectionStart = codeTextarea.selectionEnd = start - 1;
+      renderEditorGutterAndHighlights();
+      return;
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. AUTO-CLOSING PAIRS & OVERTYPE STEPPING
+  // --------------------------------------------------------------------------
+  const pairs = { '(': ')', '[': ']', '{': '}' };
+  if (pairs[e.key]) {
+    const closing = pairs[e.key];
+    if (start !== end) {
+      // Wrap selection
+      e.preventDefault();
+      const selText = val.slice(start, end);
+      const wrapped = e.key + selText + closing;
+      codeTextarea.value = val.slice(0, start) + wrapped + val.slice(end);
+      codeTextarea.selectionStart = start + 1;
+      codeTextarea.selectionEnd = start + 1 + selText.length;
+      renderEditorGutterAndHighlights();
+      return;
+    } else {
+      // Insert pair with cursor inside
+      e.preventDefault();
+      codeTextarea.value = val.slice(0, start) + e.key + closing + val.slice(end);
+      codeTextarea.selectionStart = codeTextarea.selectionEnd = start + 1;
+      renderEditorGutterAndHighlights();
+      return;
+    }
+  }
+
+  // Quotes: auto-close if not preceded by word character
+  if (e.key === '"' || e.key === "'") {
+    const quote = e.key;
+    if (start !== end) {
+      e.preventDefault();
+      const selText = val.slice(start, end);
+      const wrapped = quote + selText + quote;
+      codeTextarea.value = val.slice(0, start) + wrapped + val.slice(end);
+      codeTextarea.selectionStart = start + 1;
+      codeTextarea.selectionEnd = start + 1 + selText.length;
+      renderEditorGutterAndHighlights();
+      return;
+    } else if (val[start] === quote) {
+      // Step over quote
+      e.preventDefault();
+      codeTextarea.selectionStart = codeTextarea.selectionEnd = start + 1;
+      return;
+    } else {
+      const prevChar = start > 0 ? val[start - 1] : '';
+      if (!/[a-zA-Z0-9_]/.test(prevChar)) {
+        e.preventDefault();
+        codeTextarea.value = val.slice(0, start) + quote + quote + val.slice(end);
+        codeTextarea.selectionStart = codeTextarea.selectionEnd = start + 1;
+        renderEditorGutterAndHighlights();
+        return;
+      }
+    }
+  }
+
+  // Step over closing bracket if typed
+  if ((e.key === ')' || e.key === ']' || e.key === '}') && start === end && val[start] === e.key) {
+    e.preventDefault();
+    codeTextarea.selectionStart = codeTextarea.selectionEnd = start + 1;
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. PYTHON AUTO-DEDENT on ':' after elif, else, except, finally
+  // --------------------------------------------------------------------------
+  if (e.key === ':' && currentLanguage === 'python' && start === end) {
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    const linePrefix = val.slice(lineStart, start);
+    const trimmedPrefix = linePrefix.trim();
+    if (trimmedPrefix === 'else' || trimmedPrefix === 'finally' || trimmedPrefix.startsWith('elif ') || trimmedPrefix.startsWith('except')) {
+      const leadingSpaces = (linePrefix.match(/^[ ]*/) || [''])[0].length;
+      if (leadingSpaces >= 4 && leadingSpaces % 4 === 0) {
+        e.preventDefault();
+        // Remove 4 spaces from line start and append ':'
+        const dedentedLine = linePrefix.slice(4) + ':';
+        codeTextarea.value = val.slice(0, lineStart) + dedentedLine + val.slice(end);
+        codeTextarea.selectionStart = codeTextarea.selectionEnd = lineStart + dedentedLine.length;
+        renderEditorGutterAndHighlights();
+        return;
+      }
+    }
+  }
+
+  // C-family auto-dedent on '}'
+  if (e.key === '}' && currentLanguage !== 'python' && start === end) {
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    const linePrefix = val.slice(lineStart, start);
+    if (/^[ ]+$/.test(linePrefix) && linePrefix.length >= 4) {
+      e.preventDefault();
+      const dedentedLine = linePrefix.slice(4) + '}';
+      codeTextarea.value = val.slice(0, lineStart) + dedentedLine + val.slice(end);
+      codeTextarea.selectionStart = codeTextarea.selectionEnd = lineStart + dedentedLine.length;
+      renderEditorGutterAndHighlights();
+      return;
+    }
   }
 });
+
+
+// Auto-Format Indentation (Cleans mixed tabs, trims trailing whitespace, standardizes to 4-space tabstops)
+const btnFormatIndent = document.getElementById('btnFormatIndent');
+if (btnFormatIndent) {
+  btnFormatIndent.addEventListener('click', () => {
+    const lines = codeTextarea.value.split('\n');
+    const formatted = lines.map(line => {
+      // Replace leading tabs with 4 spaces
+      let indent = 0;
+      let i = 0;
+      while (i < line.length) {
+        if (line[i] === ' ') indent += 1;
+        else if (line[i] === '\t') indent += 4;
+        else break;
+        i++;
+      }
+      const roundIndent = Math.round(indent / 4) * 4;
+      return ' '.repeat(roundIndent) + line.slice(i).trimEnd();
+    }).join('\n');
+    codeTextarea.value = formatted;
+    renderEditorGutterAndHighlights();
+    showBanner('Cleaned and standardized 4-space indentation across all code lines.');
+  });
+}
 
 codeTextarea.addEventListener('input', () => {
   renderEditorGutterAndHighlights();
@@ -7812,6 +8156,11 @@ function renderEditorGutterAndHighlights() {
   const prevLine = snap ? snap.prevLine : -1;
   const counts = currentTrace ? currentTrace.lineExecCounts : {};
 
+  // Compute cursor current line index for active indent guide highlighting
+  const curPos = codeTextarea.selectionStart || 0;
+  const valUpToCur = codeTextarea.value.slice(0, curPos);
+  const activeLineIdx = valUpToCur.split('\n').length;
+
   let gutterHtml = '';
   let backdropHtml = '';
 
@@ -7842,7 +8191,18 @@ function renderEditorGutterAndHighlights() {
       ? `<span class="exec-count-pill">×${hitCount.toLocaleString()}</span>`
       : '';
 
-    backdropHtml += `<div class="${lineCls}">${pillHtml}</div>`;
+    // Render visual indentation guide lines at 4-space boundaries
+    const curLineText = lines[i - 1] || '';
+    const leadingSpaces = (curLineText.match(/^[ ]*/) || [''])[0].length;
+    const indentLevels = Math.min(12, Math.floor(leadingSpaces / 4));
+    let guidesHtml = '';
+    for (let lvl = 1; lvl <= indentLevels; lvl++) {
+      const isGuideActive = (i === activeLineIdx);
+      // JetBrains Mono 12.5px width is exactly 1ch per char, with padding-left: 10px
+      guidesHtml += `<span class="indent-guide-bar ${isGuideActive ? 'indent-guide-active' : ''}" style="left: calc(10px + ${lvl * 4}ch);"></span>`;
+    }
+
+    backdropHtml += `<div class="${lineCls}">${guidesHtml}${pillHtml}</div>`;
   }
 
   gutterContainer.innerHTML = gutterHtml;
@@ -7862,6 +8222,9 @@ function renderEditorGutterAndHighlights() {
   });
 }
 
+function _skipOldRenderFunc() {
+}
+
 function scrollEditorToActiveLine(lineNum) {
   if (!lineNum || lineNum < 1) return;
   const rowHeight = 21;
@@ -7874,7 +8237,7 @@ function scrollEditorToActiveLine(lineNum) {
   }
 }
 
-// Format primitive or reference cell HTML (Compact original Python Tutor style!)
+// Format primitive or reference cell HTML (Compact card style)
 function renderValueHtml(valObj, sourceKey, isActiveSource = true) {
   if (!valObj) return '<span class="text-slate-500 mono">None</span>';
   if (valObj.kind === 'none') {
@@ -7919,12 +8282,12 @@ function didVarChange(prevSnap, frameId, varName, curVal) {
   return pv.val.val !== curVal.val;
 }
 
-// Render single Heap Object Card (Shrink-to-fit, matching original Python Tutor)
+// Render single Heap Object Card (Shrink-to-fit)
 function renderSingleHeapCardHtml(obj, inlinePrimitives, staggerIdx = 0, layoutMode = 'staggered', totalChainCount = 1) {
   const id = obj.id;
   let staggerStyle = '';
   if (layoutMode === 'staggered' && totalChainCount > 1) {
-    // Authentic Python Tutor Top-Right to Bottom-Left (`/`) Diagonal Staircase!
+    // Top-Right to Bottom-Left (`/`) Diagonal Staircase Layout
     const stepX = 58;
     const baseIndent = 160;
     const leftPx = baseIndent + Math.max(0, (totalChainCount - 1 - staggerIdx)) * stepX;
@@ -8430,7 +8793,7 @@ function renderFramesAndHeap(snap, prevSnap) {
 // Handles:
 // 1. Left-to-Right Horizontal Pointers (A.next ──► B)
 // 2. Right-to-Left Backward Pointers (B.prev ──► A, arcing cleanly underneath!)
-// 3. Frame-to-Heap Pointers (active frame in royal blue, inactive frame in soft gray just like Python Tutor)
+// 3. Frame-to-Heap Pointers (active frame in royal blue, inactive frame in soft gray)
 function drawPointerArrows() {
   const drawEnabled = document.getElementById('chkDrawArrows').checked;
   const isDark = document.body.classList.contains('dark-mode');
@@ -8549,8 +8912,8 @@ function drawPointerArrows() {
       const dxLeft = tLeft - sx;
 
       if (dyCenter > 15 && dxLeft < 0) {
-        // Diagonal Down-Left (`/`) Step: e.g., Node(10).next ──► Node(20) in PyTutor Classic Diagonal!
-        // Look at original Python Tutor: arrow goes from Node(i).next dot smoothly down-and-left
+        // Diagonal Down-Left (`/`) Step: e.g., Node(10).next ──► Node(20) in Classic Diagonal!
+        // Arrow goes from Node(i).next dot smoothly down-and-left
         // directly to the upper-left corner of Node(i+1)!
         const tx = tLeft - 1;
         const ty = tTop + 10;
@@ -8560,8 +8923,8 @@ function drawPointerArrows() {
         const c2y = ty - (ty - sy) * 0.25;
         d = `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${tx} ${ty}`;
       } else if (dyCenter < -15 && dxLeft > -20) {
-        // Diagonal Up-Right (`/`) Step: e.g., Node(20).prev ──► Node(10) in PyTutor Classic Diagonal!
-        // Look at original Python Tutor: arrow exits Node(i+1).prev, bows gently up-and-left outside the spine,
+        // Diagonal Up-Right (`/`) Step: e.g., Node(20).prev ──► Node(10) in Classic Diagonal!
+        // Arrow exits Node(i+1).prev, bows gently up-and-left outside the spine,
         // and lands on the upper-left edge of Node(i)!
         isBackward = true;
         const tx = tLeft - 1;
@@ -8592,7 +8955,7 @@ function drawPointerArrows() {
         d = `M ${sx} ${sy} C ${sx - arcLeft} ${sy}, ${tx - arcLeft} ${ty}, ${tx} ${ty}`;
       }
     } else {
-      // Frame-to-Heap Pointer: clean direct ray like original Python Tutor so parallel rays never bow into class boxes above
+      // Frame-to-Heap Pointer: clean direct ray so parallel rays never bow into class boxes above
       const tx = tLeft - 2;
       const ty = tTop + slotOffset;
       const midX = (sx + tx) * 0.5;
@@ -8939,9 +9302,9 @@ function runVisualization() {
   tracePerfBadge.textContent = `${trace.totalSteps.toLocaleString()} steps in ${trace.elapsedMs} ms`;
 
   if (trace.truncatedAtLimit) {
-    showBanner(`Reached the ${maxStepsVal.toLocaleString()}-step limit (100× standard Python Tutor's 999-step limit). All ${trace.totalSteps.toLocaleString()} steps are recorded and ready to scrub!`);
+    showBanner(`Reached the ${maxStepsVal.toLocaleString()}-step execution limit. All ${trace.totalSteps.toLocaleString()} steps are recorded and ready to scrub!`);
   } else if (trace.totalSteps > 999) {
-    showBanner(`Traced ${trace.totalSteps.toLocaleString()} execution steps in ${trace.elapsedMs} ms — exceeding standard Python Tutor's 999-step ceiling!`);
+    showBanner(`Traced ${trace.totalSteps.toLocaleString()} execution steps in ${trace.elapsedMs} ms!`);
   } else {
     statusBanner.classList.add('hidden');
   }
