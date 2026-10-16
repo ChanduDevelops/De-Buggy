@@ -1,0 +1,19 @@
+{
+  "name": "codevision",
+  "version": "1.0.0",
+  "description": "CodeVisualizer",
+  "main": "index.js",
+  "scripts": {
+    "build": "node -e \"fs.mkdirSync('dist', { recursive: true });\" && npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true src/index.html -o dist/index.html",
+    "deploy": "gh-pages -d dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "gh-pages": "^6.3.0",
+    "html-minifier-terser": "^7.2.0"
+  }
+}
